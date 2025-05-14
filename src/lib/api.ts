@@ -29,6 +29,17 @@ export interface StockPrice {
   standardDeviation?: number;
 }
 
+// Add the missing CorrelationData interface
+export interface CorrelationData {
+  matrix: {
+    [key: string]: {
+      [key: string]: number;
+    };
+  };
+  stockIds: string[];
+  symbols: string[];
+}
+
 // Token management
 const getToken = (): string | null => {
   return localStorage.getItem("api_token");
