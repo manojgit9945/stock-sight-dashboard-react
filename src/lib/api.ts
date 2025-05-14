@@ -1,8 +1,7 @@
-
 import { toast } from "sonner";
 
-// Updated API_BASE_URL to use HTTPS
-export const API_BASE_URL = "https://20.244.56.144/evaluation-service"; 
+// Updated API_BASE_URL to use HTTP instead of HTTPS
+export const API_BASE_URL = "http://20.244.56.144/evaluation-service"; 
 
 type ApiResponse<T> = {
   data?: T;
@@ -53,7 +52,8 @@ const setToken = (token: string): void => {
 
 // Use the provided token
 export const initializeToken = (): void => {
-  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiZXhwIjoxNzQ3MTk5NjMzLCJpYXQiOjE3NDcxOTkzMzMsImlzcyI6IkFmZm9yZG1lZCIsImp0aSI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsInN1YiI6Im1hbm9qMTIzbDI4OEBnbWFpbC5jb20ifSwiZW1haWwiOiJtYW5vajEyM2wyODhAZ21haWwuY29tIiwibmFtZSI6Im1hbm9qIGwiLCJyb2xsTm8iOiJlbmcyMmNzMDU2MSIsImFjY2Vzc0NvZGUiOiJDdnRQY1UiLCJjbGllbnRJRCI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsImNsaWVudFNlY3JldCI6Ik1TdGViZHJKd1NydGJTa24ifQ.ZH1NSoO2GJurpOriIfVv3kyvgFwNjBuc8xm042BaLIk";
+  // Updated token from the user's request
+  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiZXhwIjoxNzQ3MjAzMzYwLCJpYXQiOjE3NDcyMDMwNjAsImlzcyI6IkFmZm9yZG1lZCIsImp0aSI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsInN1YiI6Im1hbm9qMTIzbDI4OEBnbWFpbC5jb20ifSwiZW1haWwiOiJtYW5vajEyM2wyODhAZ21haWwuY29tIiwibmFtZSI6Im1hbm9qIGwiLCJyb2xsTm8iOiJlbmcyMmNzMDU2MSIsImFjY2Vzc0NvZGUiOiJDdnRQY1UiLCJjbGllbnRJRCI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsImNsaWVudFNlY3JldCI6Ik1TdGViZHJKd1NydGJTa24ifQ.MZ3jax4IjL6bqxgabqIBKOh9ptpAzTN_RPk9JVZkezY";
   setToken(token);
 };
 
@@ -78,16 +78,12 @@ const apiRequest = async <T>(
     const options: RequestInit = { 
       method, 
       headers,
-      mode: 'cors',
-      // Added to handle CORS preflight
-      credentials: 'omit'
     };
     
     if (body) {
       options.body = JSON.stringify(body);
     }
 
-    // Update API URL to use HTTPS
     const apiUrl = `${API_BASE_URL}${endpoint}`;
     console.log(`Making API request to: ${apiUrl}`);
     const response = await fetch(apiUrl, options);
