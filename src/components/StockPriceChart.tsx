@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { StockPrice } from "@/lib/api";
 import LoadingState from "@/components/LoadingState";
@@ -55,8 +55,11 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({ data, loading }) => {
     );
   }
 
+  // Transform price data for the chart
   const chartData = data.prices.map((point) => ({
-    timestamp: new Date(point.timestamp).getTime(),
+    timestamp: typeof point.timestamp === 'string' ? 
+               new Date(point.timestamp).getTime() : 
+               new Date().getTime(),
     price: point.price,
   }));
 

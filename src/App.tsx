@@ -9,27 +9,36 @@ import { CorrelationProvider } from "@/contexts/CorrelationContext";
 import StockPricePage from "./pages/StockPricePage";
 import CorrelationPage from "./pages/CorrelationPage";
 import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
+import { initializeToken } from "./lib/api";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <StocksProvider>
-          <CorrelationProvider>
-            <Routes>
-              <Route path="/" element={<StockPricePage />} />
-              <Route path="/correlation" element={<CorrelationPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </CorrelationProvider>
-        </StocksProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Initialize the API token when the app loads
+  useEffect(() => {
+    initializeToken();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <StocksProvider>
+            <CorrelationProvider>
+              <Routes>
+                <Route path="/" element={<StockPricePage />} />
+                <Route path="/correlation" element={<CorrelationPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </CorrelationProvider>
+          </StocksProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

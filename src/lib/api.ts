@@ -1,7 +1,7 @@
 
 import { toast } from "sonner";
 
-export const API_BASE_URL = "https://test-server.com/api"; // Replace with actual API endpoint
+export const API_BASE_URL = "http://20.244.56.144/evaluation-service"; 
 
 type ApiResponse<T> = {
   data?: T;
@@ -17,8 +17,8 @@ export interface Stock {
 }
 
 export interface PricePoint {
-  timestamp: string;
   price: number;
+  lastUpdatedAt: string;
 }
 
 export interface StockPrice {
@@ -48,36 +48,10 @@ const setToken = (token: string): void => {
   localStorage.setItem("api_token", token);
 };
 
-// Register and get a token
-export const registerAndGetToken = async (): Promise<boolean> => {
-  try {
-    // This is a mock implementation - replace with actual registration logic
-    const response = await fetch(`${API_BASE_URL}/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: "test@example.com",
-        name: "Stock Price App",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to register");
-    }
-
-    const data = await response.json();
-    if (data.token) {
-      setToken(data.token);
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Registration error:", error);
-    toast.error("Failed to connect to API server");
-    return false;
-  }
+// Use the provided token
+export const initializeToken = (): void => {
+  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiZXhwIjoxNzQ3MTk5NjMzLCJpYXQiOjE3NDcxOTkzMzMsImlzcyI6IkFmZm9yZG1lZCIsImp0aSI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsInN1YiI6Im1hbm9qMTIzbDI4OEBnbWFpbC5jb20ifSwiZW1haWwiOiJtYW5vajEyM2wyODhAZ21haWwuY29tIiwibmFtZSI6Im1hbm9qIGwiLCJyb2xsTm8iOiJlbmcyMmNzMDU2MSIsImFjY2Vzc0NvZGUiOiJDdnRQY1UiLCJjbGllbnRJRCI6ImQxMzczOWQ0LTZmMTItNGMxNy1iYWYzLTEzOTZkZTU3YWM4OCIsImNsaWVudFNlY3JldCI6Ik1TdGViZHJKd1NydGJTa24ifQ.ZH1NSoO2GJurpOriIfVv3kyvgFwNjBuc8xm042BaLIk";
+  setToken(token);
 };
 
 // Generic API request function with authentication
@@ -90,10 +64,7 @@ const apiRequest = async <T>(
     const token = getToken();
     
     if (!token) {
-      const registered = await registerAndGetToken();
-      if (!registered) {
-        return { error: "Authentication failed" };
-      }
+      initializeToken();
     }
     
     const headers: HeadersInit = {
@@ -106,16 +77,13 @@ const apiRequest = async <T>(
       options.body = JSON.stringify(body);
     }
 
+    console.log(`Making API request to: ${API_BASE_URL}${endpoint}`);
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
     
     // Token expired or invalid
     if (response.status === 401) {
-      const registered = await registerAndGetToken();
-      if (registered) {
-        return apiRequest(endpoint, method, body);
-      } else {
-        return { error: "Authentication failed" };
-      }
+      initializeToken();
+      return apiRequest(endpoint, method, body);
     }
 
     if (!response.ok) {
@@ -126,30 +94,197 @@ const apiRequest = async <T>(
     return { data };
   } catch (error) {
     console.error("API request error:", error);
+    toast.error(`API request failed: ${String(error)}`);
     return { error: String(error) };
   }
 };
 
+// Transform the API stock response format to our internal format
+const transformStocksResponse = (apiResponse: { stocks: Record<string, string> }): Stock[] => {
+  return Object.entries(apiResponse.stocks).map(([name, symbol]) => ({
+    id: symbol,
+    symbol,
+    name,
+  }));
+};
+
+// Transform the API price response format to our internal format
+const transformPriceResponse = (stockId: string, symbol: string, prices: PricePoint[]): StockPrice => {
+  return {
+    stockId,
+    symbol,
+    prices: prices.map(price => ({
+      price: price.price,
+      timestamp: price.lastUpdatedAt, // Map lastUpdatedAt to timestamp for compatibility
+    })),
+  };
+};
+
 // API functions
 export const fetchAllStocks = async (): Promise<ApiResponse<Stock[]>> => {
-  return apiRequest<Stock[]>("/stocks");
+  const response = await apiRequest<{ stocks: Record<string, string> }>("/stocks");
+  
+  if (response.error) {
+    return { error: response.error };
+  }
+  
+  if (response.data) {
+    const transformedStocks = transformStocksResponse(response.data);
+    return { data: transformedStocks };
+  }
+  
+  return { error: "No data received" };
 };
 
 export const fetchStockPrices = async (
   stockId: string, 
   minutes: number
 ): Promise<ApiResponse<StockPrice>> => {
-  return apiRequest<StockPrice>(`/stocks/${stockId}/prices?minutes=${minutes}`);
+  const endpoint = minutes 
+    ? `/stocks/${stockId}?minutes=${minutes}`
+    : `/stocks/${stockId}`;
+  
+  const response = await apiRequest<PricePoint[] | { stock: PricePoint }>(endpoint);
+  
+  if (response.error) {
+    return { error: response.error };
+  }
+  
+  if (response.data) {
+    let prices: PricePoint[] = [];
+    
+    // Handle both single price point and array of price points
+    if (Array.isArray(response.data)) {
+      prices = response.data;
+    } else if (response.data.stock) {
+      // For single price point response
+      prices = [response.data.stock];
+    }
+    
+    // Transform prices to match our internal format and calculate statistics
+    const transformedPrices = transformPriceResponse(stockId, stockId, prices);
+    
+    // Calculate statistics on the transformed data
+    const { average, standardDeviation } = calculateStatistics(transformedPrices.prices);
+    const enhancedData = {
+      ...transformedPrices,
+      average,
+      standardDeviation
+    };
+    
+    return { data: enhancedData };
+  }
+  
+  return { error: "No data received" };
 };
 
+// This is a placeholder since the API doesn't provide correlation data directly
+// In a real implementation, we would calculate this from the price data of multiple stocks
 export const fetchCorrelationMatrix = async (
   minutes: number
 ): Promise<ApiResponse<CorrelationData>> => {
-  return apiRequest<CorrelationData>(`/correlation?minutes=${minutes}`);
+  // First get all stocks
+  const stocksResponse = await fetchAllStocks();
+  
+  if (stocksResponse.error || !stocksResponse.data) {
+    return { error: stocksResponse.error || "Failed to fetch stocks" };
+  }
+  
+  const stocks = stocksResponse.data;
+  
+  // Then fetch price data for each stock
+  const pricePromises = stocks.slice(0, 5).map(stock => 
+    fetchStockPrices(stock.symbol, minutes)
+  );
+  
+  try {
+    const priceResponses = await Promise.all(pricePromises);
+    
+    // Filter out any stocks that didn't return price data
+    const validPrices = priceResponses
+      .filter(response => response.data && response.data.prices && response.data.prices.length > 0)
+      .map(response => response.data!);
+    
+    if (validPrices.length < 2) {
+      return { error: "Not enough price data to calculate correlations" };
+    }
+    
+    // Calculate correlation matrix
+    const stockIds = validPrices.map(price => price.stockId);
+    const symbols = validPrices.map(price => price.symbol);
+    
+    // Create an empty correlation matrix
+    const matrix: { [key: string]: { [key: string]: number } } = {};
+    
+    // Fill the matrix with correlation values
+    stockIds.forEach(id1 => {
+      matrix[id1] = {};
+      stockIds.forEach(id2 => {
+        if (id1 === id2) {
+          matrix[id1][id2] = 1; // Perfect correlation with self
+        } else {
+          // Calculate correlation between two stocks
+          const stock1 = validPrices.find(p => p.stockId === id1);
+          const stock2 = validPrices.find(p => p.stockId === id2);
+          
+          if (stock1 && stock2) {
+            matrix[id1][id2] = calculateCorrelation(stock1.prices, stock2.prices);
+          } else {
+            matrix[id1][id2] = 0;
+          }
+        }
+      });
+    });
+    
+    return { 
+      data: {
+        matrix,
+        stockIds,
+        symbols
+      }
+    };
+  } catch (error) {
+    console.error("Error calculating correlation matrix:", error);
+    return { error: `Failed to calculate correlation matrix: ${error}` };
+  }
+};
+
+// Helper function to calculate correlation between two price series
+const calculateCorrelation = (prices1: any[], prices2: any[]): number => {
+  // Ensure we have an equal number of data points by taking the minimum length
+  const length = Math.min(prices1.length, prices2.length);
+  
+  if (length < 2) return 0; // Not enough data points
+  
+  // Extract just the prices
+  const p1 = prices1.slice(0, length).map(p => p.price);
+  const p2 = prices2.slice(0, length).map(p => p.price);
+  
+  // Calculate means
+  const mean1 = p1.reduce((sum, val) => sum + val, 0) / length;
+  const mean2 = p2.reduce((sum, val) => sum + val, 0) / length;
+  
+  // Calculate correlation coefficient
+  let numerator = 0;
+  let denominator1 = 0;
+  let denominator2 = 0;
+  
+  for (let i = 0; i < length; i++) {
+    const diff1 = p1[i] - mean1;
+    const diff2 = p2[i] - mean2;
+    
+    numerator += diff1 * diff2;
+    denominator1 += diff1 * diff1;
+    denominator2 += diff2 * diff2;
+  }
+  
+  if (denominator1 === 0 || denominator2 === 0) return 0;
+  
+  return numerator / Math.sqrt(denominator1 * denominator2);
 };
 
 // Calculate statistics from price data
-export const calculateStatistics = (prices: PricePoint[]): { average: number; standardDeviation: number } => {
+export const calculateStatistics = (prices: any[]): { average: number; standardDeviation: number } => {
   if (prices.length === 0) {
     return { average: 0, standardDeviation: 0 };
   }
