@@ -1,6 +1,8 @@
+
 import { toast } from "sonner";
 
-export const API_BASE_URL = "http://20.244.56.144/evaluation-service"; 
+// Updated API_BASE_URL to use HTTPS
+export const API_BASE_URL = "https://20.244.56.144/evaluation-service"; 
 
 type ApiResponse<T> = {
   data?: T;
@@ -29,7 +31,7 @@ export interface StockPrice {
   standardDeviation?: number;
 }
 
-// Add the missing CorrelationData interface
+// Add the CorrelationData interface
 export interface CorrelationData {
   matrix: {
     [key: string]: {
@@ -73,13 +75,22 @@ const apiRequest = async <T>(
       "Authorization": `Bearer ${getToken()}`,
     };
 
-    const options: RequestInit = { method, headers };
+    const options: RequestInit = { 
+      method, 
+      headers,
+      mode: 'cors',
+      // Added to handle CORS preflight
+      credentials: 'omit'
+    };
+    
     if (body) {
       options.body = JSON.stringify(body);
     }
 
-    console.log(`Making API request to: ${API_BASE_URL}${endpoint}`);
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    // Update API URL to use HTTPS
+    const apiUrl = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making API request to: ${apiUrl}`);
+    const response = await fetch(apiUrl, options);
     
     // Token expired or invalid
     if (response.status === 401) {
@@ -252,7 +263,7 @@ export const fetchCorrelationMatrix = async (
 };
 
 // Helper function to calculate correlation between two price series
-const calculateCorrelation = (prices1: any[], prices2: any[]): number => {
+const calculateCorrelation = (prices1: PricePoint[], prices2: PricePoint[]): number => {
   // Ensure we have an equal number of data points by taking the minimum length
   const length = Math.min(prices1.length, prices2.length);
   
@@ -286,7 +297,7 @@ const calculateCorrelation = (prices1: any[], prices2: any[]): number => {
 };
 
 // Calculate statistics from price data
-export const calculateStatistics = (prices: any[]): { average: number; standardDeviation: number } => {
+export const calculateStatistics = (prices: PricePoint[]): { average: number; standardDeviation: number } => {
   if (prices.length === 0) {
     return { average: 0, standardDeviation: 0 };
   }

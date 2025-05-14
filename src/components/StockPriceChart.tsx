@@ -57,7 +57,7 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({ data, loading }) => {
 
   // Transform price data for the chart
   const chartData = data.prices.map((point) => ({
-    timestamp: point.timestamp || point.lastUpdatedAt, // Use timestamp if available, otherwise use lastUpdatedAt
+    timestamp: point.timestamp || point.lastUpdatedAt, // Use timestamp if available, otherwise lastUpdatedAt
     price: point.price,
   }));
 
