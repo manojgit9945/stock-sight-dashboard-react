@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 export const API_BASE_URL = "http://20.244.56.144/evaluation-service"; 
@@ -19,6 +18,7 @@ export interface Stock {
 export interface PricePoint {
   price: number;
   lastUpdatedAt: string;
+  timestamp?: string; // Add this as an optional property for internal use
 }
 
 export interface StockPrice {
@@ -27,16 +27,6 @@ export interface StockPrice {
   prices: PricePoint[];
   average?: number;
   standardDeviation?: number;
-}
-
-export interface CorrelationData {
-  matrix: {
-    [key: string]: {
-      [key: string]: number;
-    };
-  };
-  stockIds: string[];
-  symbols: string[];
 }
 
 // Token management
@@ -115,6 +105,7 @@ const transformPriceResponse = (stockId: string, symbol: string, prices: PricePo
     symbol,
     prices: prices.map(price => ({
       price: price.price,
+      lastUpdatedAt: price.lastUpdatedAt,
       timestamp: price.lastUpdatedAt, // Map lastUpdatedAt to timestamp for compatibility
     })),
   };
